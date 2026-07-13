@@ -50,6 +50,47 @@ node --check backend/index.js
 node --check frontend/app.js
 ```
 
+Multi-signature workflows
+
+The shared library includes helpers for common Stellar multisig account setup
+and transaction signing:
+
+```js
+const {
+  addSignerTransaction,
+  setAccountThresholdsTransaction,
+  signTransactionWithKeys
+} = require('./src');
+
+// Add or update a signer. Use weight 0 to remove the signer.
+const addSignerXdr = await addSignerTransaction(
+  sourceSecret,
+  signerPublicKey,
+  1,
+  'testnet'
+);
+
+// Configure account thresholds for low, medium, and high operations.
+const thresholdsXdr = await setAccountThresholdsTransaction(
+  sourceSecret,
+  { low: 1, medium: 2, high: 2 },
+  'testnet'
+);
+
+// Add signatures from multiple keys to an already-built transaction XDR.
+const fullySignedXdr = signTransactionWithKeys(
+  unsignedOrPartiallySignedXdr,
+  [sourceSecret, signerSecret],
+  'testnet'
+);
+```
+
+Signer weights and thresholds must be integers from `0` to `255`, matching
+Stellar's `setOptions` constraints. `addSignerTransaction` and
+`setAccountThresholdsTransaction` return signed XDR ready to submit with
+`submitTransaction(...)`; `signTransactionWithKeys(...)` returns the same XDR
+with all provided signatures added.
+
 For contract verification, install the Rust toolchain and Soroban CLI locally:
 
 ```bash
