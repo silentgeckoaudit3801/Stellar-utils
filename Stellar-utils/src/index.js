@@ -1,5 +1,24 @@
 const StellarSdk = require('stellar-sdk');
 
+function createValidationError(message, field) {
+  const error = new TypeError(`ValidationError: ${message}`);
+  error.code = 'VALIDATION_ERROR';
+  error.field = field;
+  return error;
+}
+
+function createNetworkError(message, cause) {
+  const error = new Error(`NetworkError: ${message}`);
+  error.code = 'NETWORK_ERROR';
+  error.cause = cause;
+  return error;
+}
+
+function wrapHorizonError(action, error) {
+  const detail = error && error.message ? error.message : 'Unknown Horizon error';
+  return createNetworkError(`Failed to ${action}. ${detail}`, error);
+}
+
 /**
  * Validate a Stellar address
  * @param {string} address - The Stellar address to validate
@@ -49,8 +68,12 @@ async function getBalance(address, network = 'testnet') {
     ? new StellarSdk.Server('https://horizon.stellar.org')
     : new StellarSdk.Server('https://horizon-testnet.stellar.org');
 
-  const account = await server.loadAccount(address);
-  return account.balances;
+  try {
+    const account = await server.loadAccount(address);
+    return account.balances;
+  } catch (error) {
+    throw wrapHorizonError('load account balances', error);
+  }
 }
 
 /**
@@ -68,8 +91,27 @@ async function createPaymentTransaction(sourceSecret, destinationAddress, amount
     ? new StellarSdk.Server('https://horizon.stellar.org')
     : new StellarSdk.Server('https://horizon-testnet.stellar.org');
   
-  const sourceKeypair = StellarSdk.Keypair.fromSecret(sourceSecret);
-  const sourceAccount = await server.loadAccount(sourceKeypair.publicKey());
+  let sourceKeypair;
+  try {
+    sourceKeypair = StellarSdk.Keypair.fromSecret(sourceSecret);
+  } catch (error) {
+    throw createValidationError('Invalid source secret key.', 'sourceSecret');
+  }
+
+  if (!validateAddress(destinationAddress)) {
+    throw createValidationError('Invalid destination address.', 'destinationAddress');
+  }
+
+  if (assetCode !== 'XLM' && !validateAddress(assetIssuer)) {
+    throw createValidationError('Asset issuer must be a valid Stellar address for non-XLM assets.', 'assetIssuer');
+  }
+
+  let sourceAccount;
+  try {
+    sourceAccount = await server.loadAccount(sourceKeypair.publicKey());
+  } catch (error) {
+    throw wrapHorizonError('load source account', error);
+  }
   
   let asset;
   if (assetCode === 'XLM') {
@@ -105,11 +147,23 @@ async function submitTransaction(transactionXDR, network = 'testnet') {
     ? new StellarSdk.Server('https://horizon.stellar.org')
     : new StellarSdk.Server('https://horizon-testnet.stellar.org');
   
-  const transaction = new StellarSdk.Transaction(transactionXDR, network === 'public' ? StellarSdk.Networks.PUBLIC : StellarSdk.Networks.TESTNET);
-  return await server.submitTransaction(transaction);
+  let transaction;
+  try {
+    transaction = new StellarSdk.Transaction(transactionXDR, network === 'public' ? StellarSdk.Networks.PUBLIC : StellarSdk.Networks.TESTNET);
+  } catch (error) {
+    throw createValidationError('Invalid transaction XDR.', 'transactionXDR');
+  }
+
+  try {
+    return await server.submitTransaction(transaction);
+  } catch (error) {
+    throw wrapHorizonError('submit transaction', error);
+  }
 }
 
 module.exports = {
+  createValidationError,
+  createNetworkError,
   validateAddress,
   validateSecretKey,
   generateKeypair,
