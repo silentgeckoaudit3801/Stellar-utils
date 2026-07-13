@@ -27,6 +27,72 @@ function validateSecretKey(secretKey) {
 }
 
 /**
+ * Validate a Stellar memo value against protocol size/type limits.
+ * @param {string} type - Memo type: none, text, id, hash, or return.
+ * @param {string|number|bigint|Buffer|Uint8Array|null} value - Memo value
+ * @returns {{valid: boolean, type: string, error: string|null}} Validation result
+ */
+function validateMemo(type, value = null) {
+  const memoType = String(type || '').toLowerCase();
+  const ok = () => ({ valid: true, type: memoType, error: null });
+  const fail = (error) => ({ valid: false, type: memoType, error });
+
+  if (memoType === 'none') {
+    return value === null || value === undefined || value === ''
+      ? ok()
+      : fail('memo_none must not include a value');
+  }
+
+  if (memoType === 'text') {
+    if (typeof value !== 'string') return fail('memo_text must be a string');
+    return Buffer.byteLength(value, 'utf8') <= 28
+      ? ok()
+      : fail('memo_text must be 28 bytes or fewer');
+  }
+
+  if (memoType === 'id') {
+    if (value === null || value === undefined || value === '') {
+      return fail('memo_id is required');
+    }
+
+    const normalized = String(value);
+    if (!/^\d+$/.test(normalized)) {
+      return fail('memo_id must be an unsigned integer');
+    }
+
+    const id = BigInt(normalized);
+    return id <= 18446744073709551615n
+      ? ok()
+      : fail('memo_id must fit in uint64');
+  }
+
+  if (memoType === 'hash' || memoType === 'return') {
+    if (Buffer.isBuffer(value) || value instanceof Uint8Array) {
+      return value.length === 32
+        ? ok()
+        : fail(`memo_${memoType} must be exactly 32 bytes`);
+    }
+
+    if (typeof value !== 'string') {
+      return fail(`memo_${memoType} must be a 32-byte buffer, hex, or base64 string`);
+    }
+
+    const trimmed = value.trim();
+    if (/^[0-9a-fA-F]{64}$/.test(trimmed)) return ok();
+
+    try {
+      return Buffer.from(trimmed, 'base64').length === 32
+        ? ok()
+        : fail(`memo_${memoType} must decode to exactly 32 bytes`);
+    } catch (e) {
+      return fail(`memo_${memoType} must be valid hex or base64`);
+    }
+  }
+
+  return fail('unsupported memo type');
+}
+
+/**
  * Generate a new Stellar keypair
  * @returns {Object} Keypair object with publicKey and secretKey
  */
@@ -112,6 +178,7 @@ async function submitTransaction(transactionXDR, network = 'testnet') {
 module.exports = {
   validateAddress,
   validateSecretKey,
+  validateMemo,
   generateKeypair,
   getBalance,
   createPaymentTransaction,

@@ -50,6 +50,25 @@ node --check backend/index.js
 node --check frontend/app.js
 ```
 
+Memo validation
+
+The shared library exports `validateMemo(type, value)` for Stellar memo
+validation:
+
+```javascript
+const { validateMemo } = require("./src");
+
+validateMemo("text", "invoice-123");
+validateMemo("id", "18446744073709551615");
+validateMemo("hash", "a".repeat(64));
+```
+
+Supported memo types are `none`, `text`, `id`, `hash`, and `return`.
+`memo_text` is limited to 28 UTF-8 bytes, `memo_id` must fit in uint64, and
+`memo_hash` / `memo_return` must be exactly 32 bytes as a buffer, hex string,
+or base64 string. The function returns `{ valid, type, error }` so callers can
+show clear validation errors.
+
 For contract verification, install the Rust toolchain and Soroban CLI locally:
 
 ```bash

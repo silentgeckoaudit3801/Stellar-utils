@@ -1,11 +1,8 @@
-const { validateAddress, validateSecretKey, generateKeypair } = require('../src/index');
+const { validateAddress, validateSecretKey, validateMemo, generateKeypair } = require('../src/index');
 
 describe('Stellar Utils', () => {
   describe('validateAddress', () => {
     test('should return true for valid address', () => {
-      // Use a generated keypair here because some static example keys
-      // may not be valid according to `stellar-sdk`'s validators.
-      // Generating at runtime guarantees a valid public key for the test.
       const { publicKey } = generateKeypair();
       expect(validateAddress(publicKey)).toBe(true);
     });
@@ -19,8 +16,6 @@ describe('Stellar Utils', () => {
 
   describe('validateSecretKey', () => {
     test('should return true for valid secret key', () => {
-      // Use a generated keypair for the same reason as above — ensures
-      // the secret seed is a valid Ed25519 secret according to the SDK.
       const { secretKey } = generateKeypair();
       expect(validateSecretKey(secretKey)).toBe(true);
     });
@@ -39,6 +34,53 @@ describe('Stellar Utils', () => {
       expect(pair.secretKey).toBeDefined();
       expect(validateAddress(pair.publicKey)).toBe(true);
       expect(validateSecretKey(pair.secretKey)).toBe(true);
+    });
+  });
+
+  describe('validateMemo', () => {
+    test('should validate memo_none with no value', () => {
+      expect(validateMemo('none')).toEqual({
+        valid: true,
+        type: 'none',
+        error: null
+      });
+      expect(validateMemo('none', 'unexpected').valid).toBe(false);
+    });
+
+    test('should enforce memo_text 28 byte limit', () => {
+      expect(validateMemo('text', 'hello stellar').valid).toBe(true);
+      expect(validateMemo('text', '1234567890123456789012345678').valid).toBe(true);
+      expect(validateMemo('text', '12345678901234567890123456789').valid).toBe(false);
+      expect(validateMemo('text', 'rocket'.repeat(5)).valid).toBe(false);
+    });
+
+    test('should validate uint64 memo_id values', () => {
+      expect(validateMemo('id', '0').valid).toBe(true);
+      expect(validateMemo('id', 123).valid).toBe(true);
+      expect(validateMemo('id', '18446744073709551615').valid).toBe(true);
+      expect(validateMemo('id', '-1').valid).toBe(false);
+      expect(validateMemo('id', '18446744073709551616').valid).toBe(false);
+      expect(validateMemo('id', 'not-a-number').valid).toBe(false);
+    });
+
+    test('should validate 32-byte hash and return memo values', () => {
+      const hex = 'a'.repeat(64);
+      const base64 = Buffer.alloc(32, 1).toString('base64');
+      const bytes = Buffer.alloc(32, 2);
+
+      expect(validateMemo('hash', hex).valid).toBe(true);
+      expect(validateMemo('hash', base64).valid).toBe(true);
+      expect(validateMemo('return', bytes).valid).toBe(true);
+      expect(validateMemo('hash', 'a'.repeat(62)).valid).toBe(false);
+      expect(validateMemo('return', Buffer.alloc(31)).valid).toBe(false);
+    });
+
+    test('should reject unsupported memo types', () => {
+      expect(validateMemo('future', 'value')).toEqual({
+        valid: false,
+        type: 'future',
+        error: 'unsupported memo type'
+      });
     });
   });
 });
