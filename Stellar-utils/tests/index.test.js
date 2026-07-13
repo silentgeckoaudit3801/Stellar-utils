@@ -1,4 +1,10 @@
-const { validateAddress, validateSecretKey, generateKeypair } = require('../src/index');
+const {
+  withRetry,
+  isTransientHorizonError,
+  validateAddress,
+  validateSecretKey,
+  generateKeypair
+} = require('../src/index');
 
 describe('Stellar Utils', () => {
   describe('validateAddress', () => {
@@ -39,6 +45,51 @@ describe('Stellar Utils', () => {
       expect(pair.secretKey).toBeDefined();
       expect(validateAddress(pair.publicKey)).toBe(true);
       expect(validateSecretKey(pair.secretKey)).toBe(true);
+    });
+  });
+
+  describe('network retry handling', () => {
+    test('should identify transient Horizon errors', () => {
+      expect(isTransientHorizonError(new Error('network down'))).toBe(true);
+      expect(isTransientHorizonError({ status: 429 })).toBe(true);
+      expect(isTransientHorizonError({ status: 503 })).toBe(true);
+      expect(isTransientHorizonError({ status: 400 })).toBe(false);
+    });
+
+    test('should retry transient errors and return success', async () => {
+      let attempts = 0;
+      const result = await withRetry(async () => {
+        attempts += 1;
+        if (attempts === 1) {
+          const error = new Error('temporary');
+          error.status = 503;
+          throw error;
+        }
+        return 'ok';
+      }, { retries: 2, delayMs: 0 });
+
+      expect(result).toBe('ok');
+      expect(attempts).toBe(2);
+    });
+
+    test('should not retry non-transient errors', async () => {
+      let attempts = 0;
+      await expect(withRetry(async () => {
+        attempts += 1;
+        const error = new Error('bad request');
+        error.status = 400;
+        throw error;
+      }, { retries: 3, delayMs: 0 })).rejects.toThrow('Horizon request failed after 1 attempt(s): bad request');
+
+      expect(attempts).toBe(1);
+    });
+
+    test('should report a clear message after retries are exhausted', async () => {
+      await expect(withRetry(async () => {
+        const error = new Error('still unavailable');
+        error.status = 503;
+        throw error;
+      }, { retries: 1, delayMs: 0 })).rejects.toThrow('Horizon request failed after 2 attempt(s): still unavailable');
     });
   });
 });
