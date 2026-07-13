@@ -26,6 +26,25 @@ function validateSecretKey(secretKey) {
   }
 }
 
+function validateNetwork(network) {
+  return network === 'testnet' || network === 'public';
+}
+
+function validateAmount(amount) {
+  const normalized = String(amount).trim();
+  return /^\d+(\.\d{1,7})?$/.test(normalized) && Number(normalized) > 0;
+}
+
+function validateAssetCode(assetCode) {
+  return typeof assetCode === 'string' && /^[A-Z0-9]{1,12}$/.test(assetCode);
+}
+
+function assertNetwork(network) {
+  if (!validateNetwork(network)) {
+    throw new TypeError('Network must be either "testnet" or "public".');
+  }
+}
+
 /**
  * Generate a new Stellar keypair
  * @returns {Object} Keypair object with publicKey and secretKey
@@ -45,6 +64,11 @@ function generateKeypair() {
  * @returns {Promise<Array>} Array of balances
  */
 async function getBalance(address, network = 'testnet') {
+  if (!validateAddress(address)) {
+    throw new TypeError('Invalid Stellar address.');
+  }
+  assertNetwork(network);
+
   const server = network === 'public' 
     ? new StellarSdk.Server('https://horizon.stellar.org')
     : new StellarSdk.Server('https://horizon-testnet.stellar.org');
@@ -64,6 +88,23 @@ async function getBalance(address, network = 'testnet') {
  * @returns {Promise<string>} Signed transaction XDR
  */
 async function createPaymentTransaction(sourceSecret, destinationAddress, amount, assetCode = 'XLM', assetIssuer = null, network = 'testnet') {
+  if (!validateSecretKey(sourceSecret)) {
+    throw new TypeError('Invalid source secret key.');
+  }
+  if (!validateAddress(destinationAddress)) {
+    throw new TypeError('Invalid destination address.');
+  }
+  if (!validateAmount(amount)) {
+    throw new TypeError('Amount must be a positive number with at most 7 decimal places.');
+  }
+  if (!validateAssetCode(assetCode)) {
+    throw new TypeError('Asset code must be 1 to 12 uppercase letters or numbers.');
+  }
+  if (assetCode !== 'XLM' && !validateAddress(assetIssuer)) {
+    throw new TypeError('Asset issuer is required for non-XLM assets and must be a valid Stellar address.');
+  }
+  assertNetwork(network);
+
   const server = network === 'public' 
     ? new StellarSdk.Server('https://horizon.stellar.org')
     : new StellarSdk.Server('https://horizon-testnet.stellar.org');
@@ -101,6 +142,11 @@ async function createPaymentTransaction(sourceSecret, destinationAddress, amount
  * @returns {Promise<Object>} Transaction result
  */
 async function submitTransaction(transactionXDR, network = 'testnet') {
+  if (typeof transactionXDR !== 'string' || !transactionXDR.trim()) {
+    throw new TypeError('Transaction XDR must be a non-empty string.');
+  }
+  assertNetwork(network);
+
   const server = network === 'public' 
     ? new StellarSdk.Server('https://horizon.stellar.org')
     : new StellarSdk.Server('https://horizon-testnet.stellar.org');
