@@ -50,6 +50,29 @@ node --check backend/index.js
 node --check frontend/app.js
 ```
 
+Payment memos
+
+`createPaymentTransaction` accepts an optional memo argument after the network
+argument. It can be a text string or an object with `type` and `value`.
+
+```js
+await createPaymentTransaction(sourceSecret, destination, '10', 'XLM', null, 'testnet', 'invoice-123');
+
+await createPaymentTransaction(sourceSecret, destination, '10', 'XLM', null, 'testnet', {
+  type: 'id',
+  value: '12345'
+});
+
+await createPaymentTransaction(sourceSecret, destination, '10', 'XLM', null, 'testnet', {
+  type: 'hash',
+  value: 'a'.repeat(64)
+});
+```
+
+Supported memo types are `none`, `text`, `id`, `hash`, and `return`. Text
+memos are limited to 28 UTF-8 bytes, ID memos must be unsigned 64-bit integer
+strings, and hash/return memos must be 32-byte hex strings.
+
 For contract verification, install the Rust toolchain and Soroban CLI locally:
 
 ```bash
