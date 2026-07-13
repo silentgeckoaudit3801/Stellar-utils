@@ -1,5 +1,46 @@
 const StellarSdk = require('stellar-sdk');
 
+const DEFAULT_RETRY_OPTIONS = {
+  retries: 2,
+  delayMs: 250
+};
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function isTransientHorizonError(error) {
+  const status = error && (error.status || error.statusCode || error.response && error.response.status);
+  return !status || status === 408 || status === 429 || status >= 500;
+}
+
+async function withRetry(operation, options = {}) {
+  const retryOptions = {
+    ...DEFAULT_RETRY_OPTIONS,
+    ...options
+  };
+  let lastError;
+  let attemptsMade = 0;
+
+  for (let attempt = 0; attempt <= retryOptions.retries; attempt += 1) {
+    attemptsMade = attempt + 1;
+    try {
+      return await operation(attempt);
+    } catch (error) {
+      lastError = error;
+
+      if (attempt >= retryOptions.retries || !isTransientHorizonError(error)) {
+        break;
+      }
+
+      await delay(retryOptions.delayMs * (attempt + 1));
+    }
+  }
+
+  const message = lastError && lastError.message ? lastError.message : 'Horizon request failed';
+  throw new Error(`Horizon request failed after ${attemptsMade} attempt(s): ${message}`);
+}
+
 /**
  * Validate a Stellar address
  * @param {string} address - The Stellar address to validate
@@ -44,12 +85,12 @@ function generateKeypair() {
  * @param {string} [network='testnet'] - The network to use ('testnet' or 'public')
  * @returns {Promise<Array>} Array of balances
  */
-async function getBalance(address, network = 'testnet') {
+async function getBalance(address, network = 'testnet', retryOptions = {}) {
   const server = network === 'public' 
     ? new StellarSdk.Server('https://horizon.stellar.org')
     : new StellarSdk.Server('https://horizon-testnet.stellar.org');
 
-  const account = await server.loadAccount(address);
+  const account = await withRetry(() => server.loadAccount(address), retryOptions);
   return account.balances;
 }
 
@@ -63,13 +104,13 @@ async function getBalance(address, network = 'testnet') {
  * @param {string} [network='testnet'] - Network to use
  * @returns {Promise<string>} Signed transaction XDR
  */
-async function createPaymentTransaction(sourceSecret, destinationAddress, amount, assetCode = 'XLM', assetIssuer = null, network = 'testnet') {
+async function createPaymentTransaction(sourceSecret, destinationAddress, amount, assetCode = 'XLM', assetIssuer = null, network = 'testnet', retryOptions = {}) {
   const server = network === 'public' 
     ? new StellarSdk.Server('https://horizon.stellar.org')
     : new StellarSdk.Server('https://horizon-testnet.stellar.org');
   
   const sourceKeypair = StellarSdk.Keypair.fromSecret(sourceSecret);
-  const sourceAccount = await server.loadAccount(sourceKeypair.publicKey());
+  const sourceAccount = await withRetry(() => server.loadAccount(sourceKeypair.publicKey()), retryOptions);
   
   let asset;
   if (assetCode === 'XLM') {
@@ -100,16 +141,18 @@ async function createPaymentTransaction(sourceSecret, destinationAddress, amount
  * @param {string} [network='testnet'] - Network to use
  * @returns {Promise<Object>} Transaction result
  */
-async function submitTransaction(transactionXDR, network = 'testnet') {
+async function submitTransaction(transactionXDR, network = 'testnet', retryOptions = {}) {
   const server = network === 'public' 
     ? new StellarSdk.Server('https://horizon.stellar.org')
     : new StellarSdk.Server('https://horizon-testnet.stellar.org');
   
   const transaction = new StellarSdk.Transaction(transactionXDR, network === 'public' ? StellarSdk.Networks.PUBLIC : StellarSdk.Networks.TESTNET);
-  return await server.submitTransaction(transaction);
+  return await withRetry(() => server.submitTransaction(transaction), retryOptions);
 }
 
 module.exports = {
+  withRetry,
+  isTransientHorizonError,
   validateAddress,
   validateSecretKey,
   generateKeypair,
