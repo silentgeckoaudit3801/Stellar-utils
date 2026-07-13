@@ -66,6 +66,22 @@ Dashboard examples
 These scripts demonstrate how to use the shared Stellar utility library and
 how to call the dashboard backend.
 
+Fee estimation
+
+Use `estimateFee` to query Horizon fee stats and get a simple recommended fee
+in stroops:
+
+```js
+const { estimateFee } = require('./src');
+
+const fee = await estimateFee('testnet');
+console.log(fee.recommendedFee);
+```
+
+The helper supports `'testnet'` and `'public'`, returns `recommendedFee`,
+`baseFee`, `maxFee`, `lastLedgerBaseFee`, and includes the raw Horizon fee
+stats response for callers that need more detail.
+
 Contributing
 
 Please follow the repository workflow and see `CONTRIBUTING.md` for issue
