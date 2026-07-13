@@ -15,11 +15,22 @@ describe('Stellar Utils', () => {
       expect(validateAddress('')).toBe(false);
       expect(validateAddress(null)).toBe(false);
     });
+
+    test('should reject malformed public-key inputs', () => {
+      const { publicKey, secretKey } = generateKeypair();
+
+      expect(validateAddress(secretKey)).toBe(false);
+      expect(validateAddress(` ${publicKey}`)).toBe(false);
+      expect(validateAddress(`${publicKey} `)).toBe(false);
+      expect(validateAddress(publicKey.slice(0, -1))).toBe(false);
+      expect(validateAddress(undefined)).toBe(false);
+      expect(validateAddress({ publicKey })).toBe(false);
+    });
   });
 
   describe('validateSecretKey', () => {
     test('should return true for valid secret key', () => {
-      // Use a generated keypair for the same reason as above — ensures
+      // Use a generated keypair for the same reason as above -- ensures
       // the secret seed is a valid Ed25519 secret according to the SDK.
       const { secretKey } = generateKeypair();
       expect(validateSecretKey(secretKey)).toBe(true);
@@ -29,6 +40,17 @@ describe('Stellar Utils', () => {
       expect(validateSecretKey('invalid')).toBe(false);
       expect(validateSecretKey('')).toBe(false);
       expect(validateSecretKey(null)).toBe(false);
+    });
+
+    test('should reject malformed secret-key inputs', () => {
+      const { publicKey, secretKey } = generateKeypair();
+
+      expect(validateSecretKey(publicKey)).toBe(false);
+      expect(validateSecretKey(` ${secretKey}`)).toBe(false);
+      expect(validateSecretKey(`${secretKey} `)).toBe(false);
+      expect(validateSecretKey(secretKey.slice(0, -1))).toBe(false);
+      expect(validateSecretKey(undefined)).toBe(false);
+      expect(validateSecretKey({ secretKey })).toBe(false);
     });
   });
 
