@@ -66,6 +66,21 @@ Dashboard examples
 These scripts demonstrate how to use the shared Stellar utility library and
 how to call the dashboard backend.
 
+Horizon retry handling
+
+Horizon-backed helpers accept optional retry settings where applicable:
+
+```js
+await getBalance(publicKey, 'testnet', { retries: 3, delayMs: 500 });
+await createPaymentTransaction(secret, destination, '10', 'XLM', null, 'testnet', { retries: 3 });
+await submitTransaction(transactionXDR, 'testnet', { retries: 3, delayMs: 500 });
+```
+
+Retries are attempted for transient failures such as network errors, HTTP 408,
+HTTP 429, and 5xx responses. Non-transient errors fail immediately. If all
+attempts fail, the helper throws a clear `Horizon request failed after N
+attempt(s): ...` message.
+
 Contributing
 
 Please follow the repository workflow and see `CONTRIBUTING.md` for issue
