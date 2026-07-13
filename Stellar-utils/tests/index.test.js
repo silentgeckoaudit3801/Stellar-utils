@@ -1,4 +1,9 @@
-const { validateAddress, validateSecretKey, generateKeypair } = require('../src/index');
+const {
+  validateAddress,
+  validateSecretKey,
+  generateKeypair,
+  createTrustlineTransaction
+} = require('../src/index');
 
 describe('Stellar Utils', () => {
   describe('validateAddress', () => {
@@ -39,6 +44,32 @@ describe('Stellar Utils', () => {
       expect(pair.secretKey).toBeDefined();
       expect(validateAddress(pair.publicKey)).toBe(true);
       expect(validateSecretKey(pair.secretKey)).toBe(true);
+    });
+  });
+
+  describe('createTrustlineTransaction', () => {
+    test('should be exported as a function', () => {
+      expect(typeof createTrustlineTransaction).toBe('function');
+    });
+
+    test('should reject invalid source secret keys before loading account', async () => {
+      await expect(
+        createTrustlineTransaction('invalid', 'USDC', generateKeypair().publicKey)
+      ).rejects.toThrow(TypeError);
+    });
+
+    test('should reject invalid asset codes before loading account', async () => {
+      const { secretKey, publicKey } = generateKeypair();
+      await expect(
+        createTrustlineTransaction(secretKey, 'too-long-asset-code', publicKey)
+      ).rejects.toThrow(TypeError);
+    });
+
+    test('should reject invalid issuer public keys before loading account', async () => {
+      const { secretKey } = generateKeypair();
+      await expect(
+        createTrustlineTransaction(secretKey, 'USDC', 'invalid')
+      ).rejects.toThrow(TypeError);
     });
   });
 });
