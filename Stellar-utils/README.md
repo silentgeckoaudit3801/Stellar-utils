@@ -66,6 +66,27 @@ Dashboard examples
 These scripts demonstrate how to use the shared Stellar utility library and
 how to call the dashboard backend.
 
+Trustline transactions
+
+Use `createTrustlineTransaction` to build and sign a trustline XDR for an
+issued asset without submitting it immediately:
+
+```js
+const { createTrustlineTransaction } = require('./src');
+
+const xdr = await createTrustlineTransaction(
+  sourceSecret,
+  'USDC',
+  issuerPublicKey,
+  'testnet'
+);
+```
+
+The helper validates the source secret key, issued asset code, and issuer
+public key before loading the source account. Pass `'public'` as the network
+argument for mainnet, or pass an optional final `limit` string to cap the
+trustline balance.
+
 Contributing
 
 Please follow the repository workflow and see `CONTRIBUTING.md` for issue
