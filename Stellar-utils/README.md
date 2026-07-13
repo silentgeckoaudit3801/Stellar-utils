@@ -66,6 +66,20 @@ Dashboard examples
 These scripts demonstrate how to use the shared Stellar utility library and
 how to call the dashboard backend.
 
+Input validation
+
+Public helpers validate caller input before loading Horizon accounts, building
+transactions, or submitting XDR:
+
+- `getBalance` validates the account address and network.
+- `createPaymentTransaction` validates the source secret, destination address,
+  positive amount precision, asset code, non-XLM issuer, and network.
+- `submitTransaction` validates that XDR is a non-empty string and that the
+  network is supported.
+
+Invalid inputs throw `TypeError` with clear messages so callers can show useful
+feedback instead of surfacing lower-level SDK or Horizon errors.
+
 Contributing
 
 Please follow the repository workflow and see `CONTRIBUTING.md` for issue
