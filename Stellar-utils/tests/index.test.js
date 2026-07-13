@@ -1,4 +1,11 @@
-const { validateAddress, validateSecretKey, generateKeypair } = require('../src/index');
+const {
+  validateAddress,
+  validateSecretKey,
+  generateKeypair,
+  addSignerTransaction,
+  setAccountThresholdsTransaction,
+  signTransactionWithKeys
+} = require('../src/index');
 
 describe('Stellar Utils', () => {
   describe('validateAddress', () => {
@@ -39,6 +46,60 @@ describe('Stellar Utils', () => {
       expect(pair.secretKey).toBeDefined();
       expect(validateAddress(pair.publicKey)).toBe(true);
       expect(validateSecretKey(pair.secretKey)).toBe(true);
+    });
+  });
+
+  describe('multi-signature helpers', () => {
+    test('should export multisig helper functions', () => {
+      expect(typeof addSignerTransaction).toBe('function');
+      expect(typeof setAccountThresholdsTransaction).toBe('function');
+      expect(typeof signTransactionWithKeys).toBe('function');
+    });
+
+    test('should reject invalid signer inputs before network calls', async () => {
+      const { secretKey } = generateKeypair();
+
+      await expect(
+        addSignerTransaction('bad-secret', generateKeypair().publicKey, 1)
+      ).rejects.toThrow('sourceSecret must be a valid Stellar secret key');
+
+      await expect(
+        addSignerTransaction(secretKey, 'bad-signer', 1)
+      ).rejects.toThrow('signerPublicKey must be a valid Stellar public key');
+
+      await expect(
+        addSignerTransaction(secretKey, generateKeypair().publicKey, 300)
+      ).rejects.toThrow('weight must be an integer from 0 to 255');
+    });
+
+    test('should reject invalid threshold inputs before network calls', async () => {
+      const { secretKey } = generateKeypair();
+
+      await expect(
+        setAccountThresholdsTransaction('bad-secret', { low: 1 })
+      ).rejects.toThrow('sourceSecret must be a valid Stellar secret key');
+
+      await expect(
+        setAccountThresholdsTransaction(secretKey, {})
+      ).rejects.toThrow('at least one threshold must be provided');
+
+      await expect(
+        setAccountThresholdsTransaction(secretKey, { medium: 256 })
+      ).rejects.toThrow('medium threshold must be an integer from 0 to 255');
+    });
+
+    test('should reject invalid signing inputs before parsing XDR', () => {
+      expect(() => signTransactionWithKeys('', [generateKeypair().secretKey])).toThrow(
+        'transactionXDR must be a non-empty string'
+      );
+
+      expect(() => signTransactionWithKeys('AAAA', [])).toThrow(
+        'secretKeys must be a non-empty array'
+      );
+
+      expect(() => signTransactionWithKeys('AAAA', ['bad-secret'])).toThrow(
+        'secretKeys must contain only valid Stellar secret keys'
+      );
     });
   });
 });
