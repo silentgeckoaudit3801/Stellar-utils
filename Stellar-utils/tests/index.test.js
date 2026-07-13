@@ -1,4 +1,12 @@
-const { validateAddress, validateSecretKey, generateKeypair } = require('../src/index');
+const {
+  createValidationError,
+  createNetworkError,
+  validateAddress,
+  validateSecretKey,
+  generateKeypair,
+  createPaymentTransaction,
+  submitTransaction
+} = require('../src/index');
 
 describe('Stellar Utils', () => {
   describe('validateAddress', () => {
@@ -39,6 +47,42 @@ describe('Stellar Utils', () => {
       expect(pair.secretKey).toBeDefined();
       expect(validateAddress(pair.publicKey)).toBe(true);
       expect(validateSecretKey(pair.secretKey)).toBe(true);
+    });
+  });
+
+  describe('standard errors', () => {
+    test('createValidationError should use TypeError with standard code and field', () => {
+      const error = createValidationError('Invalid input.', 'address');
+      expect(error).toBeInstanceOf(TypeError);
+      expect(error.code).toBe('VALIDATION_ERROR');
+      expect(error.field).toBe('address');
+      expect(error.message).toBe('ValidationError: Invalid input.');
+    });
+
+    test('createNetworkError should use Error with standard code and cause', () => {
+      const cause = new Error('timeout');
+      const error = createNetworkError('Failed request.', cause);
+      expect(error).toBeInstanceOf(Error);
+      expect(error.code).toBe('NETWORK_ERROR');
+      expect(error.cause).toBe(cause);
+      expect(error.message).toBe('NetworkError: Failed request.');
+    });
+
+    test('createPaymentTransaction should reject invalid inputs with validation errors', async () => {
+      await expect(
+        createPaymentTransaction('invalid', generateKeypair().publicKey, '1')
+      ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', field: 'sourceSecret' });
+
+      await expect(
+        createPaymentTransaction(generateKeypair().secretKey, 'invalid', '1')
+      ).rejects.toMatchObject({ code: 'VALIDATION_ERROR', field: 'destinationAddress' });
+    });
+
+    test('submitTransaction should reject invalid XDR with validation error', async () => {
+      await expect(submitTransaction('bad-xdr')).rejects.toMatchObject({
+        code: 'VALIDATION_ERROR',
+        field: 'transactionXDR'
+      });
     });
   });
 });
