@@ -53,6 +53,69 @@ async function getBalance(address, network = 'testnet') {
   return account.balances;
 }
 
+function formatTransactionRecord(record) {
+  const asset = record.asset_type === 'native'
+    ? 'XLM'
+    : [record.asset_code, record.asset_issuer].filter(Boolean).join(':');
+
+  return {
+    id: record.id,
+    transactionHash: record.transaction_hash,
+    type: record.type,
+    from: record.from || null,
+    to: record.to || record.account || null,
+    amount: record.amount || record.starting_balance || null,
+    asset,
+    createdAt: record.created_at,
+    pagingToken: record.paging_token
+  };
+}
+
+/**
+ * Get formatted transaction history for a Stellar address
+ * @param {string} address - The Stellar address
+ * @param {Object} [options] - Query options
+ * @param {number} [options.limit=20] - Number of records to fetch
+ * @param {string} [options.cursor] - Optional Horizon paging cursor
+ * @param {string} [options.network='testnet'] - Network to use
+ * @returns {Promise<Object>} Formatted transaction records and next cursor
+ */
+async function getTransactionHistory(address, options = {}) {
+  if (!validateAddress(address)) {
+    throw new TypeError('Invalid Stellar address.');
+  }
+
+  const {
+    limit = 20,
+    cursor = null,
+    network = 'testnet'
+  } = options;
+  const safeLimit = Math.min(Math.max(Number(limit) || 20, 1), 200);
+  const server = network === 'public'
+    ? new StellarSdk.Server('https://horizon.stellar.org')
+    : new StellarSdk.Server('https://horizon-testnet.stellar.org');
+
+  let request = server
+    .payments()
+    .forAccount(address)
+    .order('desc')
+    .limit(safeLimit);
+
+  if (cursor) {
+    request = request.cursor(cursor);
+  }
+
+  const page = await request.call();
+  const records = page.records.map(formatTransactionRecord);
+
+  return {
+    records,
+    nextCursor: records.length ? records[records.length - 1].pagingToken : null,
+    hasMore: page.records.length === safeLimit,
+    network
+  };
+}
+
 /**
  * Create and sign a payment transaction
  * @param {string} sourceSecret - Source account secret key
@@ -114,6 +177,7 @@ module.exports = {
   validateSecretKey,
   generateKeypair,
   getBalance,
+  getTransactionHistory,
   createPaymentTransaction,
   submitTransaction
 };
