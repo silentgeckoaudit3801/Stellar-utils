@@ -66,6 +66,30 @@ Dashboard examples
 These scripts demonstrate how to use the shared Stellar utility library and
 how to call the dashboard backend.
 
+Transaction history
+
+Use `getTransactionHistory` to fetch formatted payment/create-account history
+for a Stellar account:
+
+```js
+const { getTransactionHistory } = require('./src');
+
+const history = await getTransactionHistory(publicKey, {
+  network: 'testnet',
+  limit: 20
+});
+
+const nextPage = await getTransactionHistory(publicKey, {
+  network: 'testnet',
+  limit: 20,
+  cursor: history.nextCursor
+});
+```
+
+Each returned record includes `id`, `transactionHash`, `type`, `from`, `to`,
+`amount`, `asset`, `createdAt`, and `pagingToken`. The response also includes
+`nextCursor`, `hasMore`, and `network`.
+
 Contributing
 
 Please follow the repository workflow and see `CONTRIBUTING.md` for issue
