@@ -1,4 +1,11 @@
-const { validateAddress, validateSecretKey, generateKeypair } = require('../src/index');
+const {
+  validateAddress,
+  validateSecretKey,
+  generateKeypair,
+  getBalance,
+  createPaymentTransaction,
+  submitTransaction
+} = require('../src/index');
 
 describe('Stellar Utils', () => {
   describe('validateAddress', () => {
@@ -39,6 +46,49 @@ describe('Stellar Utils', () => {
       expect(pair.secretKey).toBeDefined();
       expect(validateAddress(pair.publicKey)).toBe(true);
       expect(validateSecretKey(pair.secretKey)).toBe(true);
+    });
+  });
+
+  describe('public method validation', () => {
+    test('getBalance should reject invalid addresses before loading Horizon account', async () => {
+      await expect(getBalance('invalid')).rejects.toThrow(TypeError);
+    });
+
+    test('getBalance should reject invalid networks', async () => {
+      const { publicKey } = generateKeypair();
+      await expect(getBalance(publicKey, 'badnet')).rejects.toThrow(TypeError);
+    });
+
+    test('createPaymentTransaction should reject invalid source secrets', async () => {
+      const { publicKey } = generateKeypair();
+      await expect(
+        createPaymentTransaction('invalid', publicKey, '1')
+      ).rejects.toThrow(TypeError);
+    });
+
+    test('createPaymentTransaction should reject invalid destinations and amounts', async () => {
+      const { secretKey } = generateKeypair();
+      await expect(
+        createPaymentTransaction(secretKey, 'invalid', '1')
+      ).rejects.toThrow(TypeError);
+      await expect(
+        createPaymentTransaction(secretKey, generateKeypair().publicKey, '0')
+      ).rejects.toThrow(TypeError);
+    });
+
+    test('createPaymentTransaction should reject invalid issued asset inputs', async () => {
+      const { secretKey, publicKey } = generateKeypair();
+      await expect(
+        createPaymentTransaction(secretKey, publicKey, '1', 'lower')
+      ).rejects.toThrow(TypeError);
+      await expect(
+        createPaymentTransaction(secretKey, publicKey, '1', 'USDC', 'invalid')
+      ).rejects.toThrow(TypeError);
+    });
+
+    test('submitTransaction should reject empty XDR and invalid networks', async () => {
+      await expect(submitTransaction('')).rejects.toThrow(TypeError);
+      await expect(submitTransaction('AAAA', 'badnet')).rejects.toThrow(TypeError);
     });
   });
 });
