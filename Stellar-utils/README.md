@@ -66,6 +66,19 @@ Dashboard examples
 These scripts demonstrate how to use the shared Stellar utility library and
 how to call the dashboard backend.
 
+Error format
+
+Utility functions use a consistent error shape for caller-facing failures:
+
+- Validation errors are `TypeError` instances with message prefix
+  `ValidationError:`, `code: 'VALIDATION_ERROR'`, and a `field` property.
+- Horizon/network failures are `Error` instances with message prefix
+  `NetworkError:`, `code: 'NETWORK_ERROR'`, and the original error attached as
+  `cause`.
+
+This keeps invalid input failures separate from network failures while giving
+applications stable fields for user feedback and logging.
+
 Contributing
 
 Please follow the repository workflow and see `CONTRIBUTING.md` for issue
