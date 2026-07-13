@@ -1,4 +1,10 @@
-const { validateAddress, validateSecretKey, generateKeypair } = require('../src/index');
+const {
+  validateAddress,
+  validateSecretKey,
+  validateAssetCode,
+  generateKeypair,
+  verifyAssetIssuer
+} = require('../src/index');
 
 describe('Stellar Utils', () => {
   describe('validateAddress', () => {
@@ -39,6 +45,48 @@ describe('Stellar Utils', () => {
       expect(pair.secretKey).toBeDefined();
       expect(validateAddress(pair.publicKey)).toBe(true);
       expect(validateSecretKey(pair.secretKey)).toBe(true);
+    });
+  });
+
+  describe('validateAssetCode', () => {
+    test('should accept uppercase alphanumeric issued asset codes', () => {
+      expect(validateAssetCode('USDC')).toBe(true);
+      expect(validateAssetCode('A1')).toBe(true);
+      expect(validateAssetCode('ABCDEFGHIJKL')).toBe(true);
+    });
+
+    test('should reject invalid issued asset codes', () => {
+      expect(validateAssetCode('')).toBe(false);
+      expect(validateAssetCode('lower')).toBe(false);
+      expect(validateAssetCode('TOO-LONG-CODE')).toBe(false);
+      expect(validateAssetCode('ABCDEFGHIJKLM')).toBe(false);
+      expect(validateAssetCode(null)).toBe(false);
+    });
+  });
+
+  describe('verifyAssetIssuer', () => {
+    test('should be exported as a function', () => {
+      expect(typeof verifyAssetIssuer).toBe('function');
+    });
+
+    test('should reject invalid asset codes before network calls', async () => {
+      const { publicKey } = generateKeypair();
+      await expect(verifyAssetIssuer('bad-code', publicKey)).rejects.toThrow(
+        'assetCode must be 1-12 uppercase letters or numbers'
+      );
+    });
+
+    test('should reject invalid issuer accounts before network calls', async () => {
+      await expect(verifyAssetIssuer('USDC', 'not-an-issuer')).rejects.toThrow(
+        'assetIssuer must be a valid Stellar public key'
+      );
+    });
+
+    test('should reject invalid optional trustline accounts before network calls', async () => {
+      const { publicKey } = generateKeypair();
+      await expect(
+        verifyAssetIssuer('USDC', publicKey, { trustlineAddress: 'bad-holder' })
+      ).rejects.toThrow('trustlineAddress must be a valid Stellar public key');
     });
   });
 });
