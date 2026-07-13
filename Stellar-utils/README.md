@@ -4,11 +4,12 @@ Useful utilities and developer helpers for Stellar blockchain development.
 
 Contents in this folder:
 
-- `src/` — library source (exports used utilities)
-- `tests/` — unit tests
-- `frontend/` — example static demo for the utilities
-- `backend/` — example Express API wrapping the utilities
-- `contract/` — Soroban contract scaffold (Rust)
+- `src/` - library source (exports used utilities)
+- `tests/` - unit tests
+- `frontend/` - example static demo for the utilities
+- `backend/` - example Express API wrapping the utilities
+- `contract/` - Soroban contract scaffold (Rust)
+- `docs/api-reference.md` - full API reference with examples and best practices
 
 Quick start
 
@@ -24,22 +25,27 @@ npm test
 
 Project layout and purpose
 
-- `frontend/` — Minimal demo UI that uses the backend API or directly imports
+- `frontend/` - Minimal demo UI that uses the backend API or directly imports
   utilities for quick manual testing.
-- `backend/` — Small Express server exposing endpoints like `/health` and
+- `backend/` - Small Express server exposing endpoints like `/health` and
   `/generate-keypair` that call into `src/`.
-- `contract/` — Starter Soroban contract demonstrating a simple escrow-like
+- `contract/` - Starter Soroban contract demonstrating a simple escrow-like
   function; intended as a minimal template to extend.
+
+API reference
+
+See [`docs/api-reference.md`](docs/api-reference.md) for documented parameters,
+return values, usage examples, and best practices for every exported helper.
 
 Continuous Integration
 
 This repository includes GitHub Actions workflows that run on every push and
 pull request:
 
-- `ci.yml` — root CI job that installs dependencies, executes unit tests,
+- `ci.yml` - root CI job that installs dependencies, executes unit tests,
   checks backend and frontend script syntax, validates frontend HTML, and
   builds both Soroban contracts.
-- `build-contracts.yml` — isolated contract build workflow for `contract/`
+- `build-contracts.yml` - isolated contract build workflow for `contract/`
   and `Stellar-Wallet-Dashboard/contract/`.
 
 To run the CI checks locally, use:
