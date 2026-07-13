@@ -26,6 +26,85 @@ function validateSecretKey(secretKey) {
   }
 }
 
+function readAssetCode(asset) {
+  if (!asset) return null;
+  if (asset === 'native' || asset.asset_type === 'native') return 'XLM';
+  if (typeof asset.getCode === 'function') return asset.getCode();
+  return asset.asset_code || asset.code || asset.assetCode || null;
+}
+
+function readAssetIssuer(asset) {
+  if (!asset) return null;
+  if (asset === 'native' || asset.asset_type === 'native') return null;
+  if (typeof asset.getIssuer === 'function') return asset.getIssuer();
+  return asset.asset_issuer || asset.issuer || asset.assetIssuer || null;
+}
+
+/**
+ * Format a Stellar asset for display.
+ * @param {Object|string} asset - Horizon balance, SDK Asset, or asset-like object
+ * @param {Object} [options]
+ * @param {boolean} [options.includeIssuer=true] - Include issuer for issued assets
+ * @param {number} [options.issuerChars=4] - Characters to keep at each issuer edge
+ * @returns {string} Formatted asset label
+ */
+function formatAsset(asset, options = {}) {
+  const { includeIssuer = true, issuerChars = 4 } = options;
+  const code = readAssetCode(asset);
+  const issuer = readAssetIssuer(asset);
+
+  if (!code) return 'Unknown asset';
+  if (code === 'XLM' || !issuer || !includeIssuer) return code;
+
+  const edge = Math.max(1, Number(issuerChars) || 4);
+  const shortIssuer = issuer.length > edge * 2
+    ? `${issuer.slice(0, edge)}...${issuer.slice(-edge)}`
+    : issuer;
+
+  return `${code}:${shortIssuer}`;
+}
+
+/**
+ * Format a Stellar balance amount for display.
+ * @param {string|number} amount - Amount to format
+ * @param {Object} [options]
+ * @param {string} [options.locale='en-US'] - Intl locale
+ * @param {number} [options.minimumFractionDigits=0] - Minimum decimals
+ * @param {number} [options.maximumFractionDigits=7] - Maximum decimals
+ * @returns {string} Formatted amount
+ */
+function formatBalanceAmount(amount, options = {}) {
+  const {
+    locale = 'en-US',
+    minimumFractionDigits = 0,
+    maximumFractionDigits = 7
+  } = options;
+
+  const numericAmount = Number(amount);
+  if (!Number.isFinite(numericAmount)) return '0';
+
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits,
+    maximumFractionDigits
+  }).format(numericAmount);
+}
+
+/**
+ * Format a Horizon balance line or asset + amount pair for display.
+ * @param {Object|string|number} balance - Horizon balance object or raw amount
+ * @param {Object} [options] - Asset and amount formatting options
+ * @returns {string} Formatted balance, for example "1,234.5 XLM"
+ */
+function formatBalance(balance, options = {}) {
+  const amount = typeof balance === 'object' && balance !== null
+    ? balance.balance
+    : balance;
+
+  const asset = options.asset || balance;
+  const formattedAmount = formatBalanceAmount(amount, options);
+  return `${formattedAmount} ${formatAsset(asset, options)}`;
+}
+
 /**
  * Generate a new Stellar keypair
  * @returns {Object} Keypair object with publicKey and secretKey
@@ -112,6 +191,9 @@ async function submitTransaction(transactionXDR, network = 'testnet') {
 module.exports = {
   validateAddress,
   validateSecretKey,
+  formatAsset,
+  formatBalanceAmount,
+  formatBalance,
   generateKeypair,
   getBalance,
   createPaymentTransaction,
