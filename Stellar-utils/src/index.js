@@ -95,6 +95,54 @@ async function createPaymentTransaction(sourceSecret, destinationAddress, amount
 }
 
 /**
+ * Create and sign a trustline transaction for an issued asset
+ * @param {string} sourceSecret - Source account secret key
+ * @param {string} assetCode - Issued asset code
+ * @param {string} assetIssuer - Issuer public key
+ * @param {string} [network='testnet'] - Network to use
+ * @param {string} [limit] - Optional trustline limit
+ * @returns {Promise<string>} Signed transaction XDR
+ */
+async function createTrustlineTransaction(sourceSecret, assetCode, assetIssuer, network = 'testnet', limit = undefined) {
+  if (!validateSecretKey(sourceSecret)) {
+    throw new TypeError('Invalid source secret key.');
+  }
+
+  if (typeof assetCode !== 'string' || !/^[A-Z0-9]{1,12}$/.test(assetCode)) {
+    throw new TypeError('Asset code must be 1 to 12 uppercase letters or numbers.');
+  }
+
+  if (!validateAddress(assetIssuer)) {
+    throw new TypeError('Invalid asset issuer public key.');
+  }
+
+  const server = network === 'public'
+    ? new StellarSdk.Server('https://horizon.stellar.org')
+    : new StellarSdk.Server('https://horizon-testnet.stellar.org');
+
+  const sourceKeypair = StellarSdk.Keypair.fromSecret(sourceSecret);
+  const sourceAccount = await server.loadAccount(sourceKeypair.publicKey());
+  const operation = {
+    asset: new StellarSdk.Asset(assetCode, assetIssuer)
+  };
+
+  if (limit !== undefined && limit !== null && limit !== '') {
+    operation.limit = String(limit);
+  }
+
+  const transaction = new StellarSdk.TransactionBuilder(sourceAccount, {
+    fee: StellarSdk.BASE_FEE,
+    networkPassphrase: network === 'public' ? StellarSdk.Networks.PUBLIC : StellarSdk.Networks.TESTNET
+  })
+    .addOperation(StellarSdk.Operation.changeTrust(operation))
+    .setTimeout(30)
+    .build();
+
+  transaction.sign(sourceKeypair);
+  return transaction.toXDR();
+}
+
+/**
  * Submit a transaction to the network
  * @param {string} transactionXDR - Signed transaction XDR
  * @param {string} [network='testnet'] - Network to use
@@ -115,5 +163,6 @@ module.exports = {
   generateKeypair,
   getBalance,
   createPaymentTransaction,
+  createTrustlineTransaction,
   submitTransaction
 };
