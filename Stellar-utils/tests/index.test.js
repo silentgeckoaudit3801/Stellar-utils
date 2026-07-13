@@ -1,4 +1,9 @@
-const { validateAddress, validateSecretKey, generateKeypair } = require('../src/index');
+const {
+  validateAddress,
+  validateSecretKey,
+  generateKeypair,
+  getTransactionHistory
+} = require('../src/index');
 
 describe('Stellar Utils', () => {
   describe('validateAddress', () => {
@@ -39,6 +44,16 @@ describe('Stellar Utils', () => {
       expect(pair.secretKey).toBeDefined();
       expect(validateAddress(pair.publicKey)).toBe(true);
       expect(validateSecretKey(pair.secretKey)).toBe(true);
+    });
+  });
+
+  describe('getTransactionHistory', () => {
+    test('should be exported as a function', () => {
+      expect(typeof getTransactionHistory).toBe('function');
+    });
+
+    test('should reject invalid account addresses before querying Horizon', async () => {
+      await expect(getTransactionHistory('invalid')).rejects.toThrow(TypeError);
     });
   });
 });
