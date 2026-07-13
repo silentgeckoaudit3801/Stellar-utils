@@ -54,6 +54,33 @@ async function getBalance(address, network = 'testnet') {
 }
 
 /**
+ * Estimate a recommended transaction fee from Horizon fee stats
+ * @param {string} [network='testnet'] - Network to use
+ * @returns {Promise<Object>} Fee recommendation in stroops
+ */
+async function estimateFee(network = 'testnet') {
+  const server = network === 'public'
+    ? new StellarSdk.Server('https://horizon.stellar.org')
+    : new StellarSdk.Server('https://horizon-testnet.stellar.org');
+
+  const stats = await server.feeStats();
+  const recommendedFee = String(
+    stats.fee_charged && stats.fee_charged.p50
+      ? stats.fee_charged.p50
+      : StellarSdk.BASE_FEE
+  );
+
+  return {
+    recommendedFee,
+    network,
+    baseFee: String(StellarSdk.BASE_FEE),
+    maxFee: stats.max_fee ? String(stats.max_fee.mode || stats.max_fee.max || recommendedFee) : recommendedFee,
+    lastLedgerBaseFee: stats.last_ledger_base_fee ? String(stats.last_ledger_base_fee) : null,
+    raw: stats
+  };
+}
+
+/**
  * Create and sign a payment transaction
  * @param {string} sourceSecret - Source account secret key
  * @param {string} destinationAddress - Destination address
@@ -114,6 +141,7 @@ module.exports = {
   validateSecretKey,
   generateKeypair,
   getBalance,
+  estimateFee,
   createPaymentTransaction,
   submitTransaction
 };
