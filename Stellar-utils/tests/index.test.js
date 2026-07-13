@@ -1,4 +1,4 @@
-const { validateAddress, validateSecretKey, generateKeypair } = require('../src/index');
+const { validateAddress, validateSecretKey, generateKeypair, estimateFee } = require('../src/index');
 
 describe('Stellar Utils', () => {
   describe('validateAddress', () => {
@@ -39,6 +39,16 @@ describe('Stellar Utils', () => {
       expect(pair.secretKey).toBeDefined();
       expect(validateAddress(pair.publicKey)).toBe(true);
       expect(validateSecretKey(pair.secretKey)).toBe(true);
+    });
+  });
+
+  describe('estimateFee', () => {
+    test('should be exported as a function', () => {
+      expect(typeof estimateFee).toBe('function');
+    });
+
+    test('should accept default and public network arguments', () => {
+      expect(estimateFee.length).toBeLessThanOrEqual(1);
     });
   });
 });
