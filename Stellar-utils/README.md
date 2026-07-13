@@ -50,6 +50,40 @@ node --check backend/index.js
 node --check frontend/app.js
 ```
 
+Asset issuer verification
+
+Use `verifyAssetIssuer(assetCode, assetIssuer, options)` to check whether an
+issued Stellar asset is visible on Horizon, whether the issuer account exists,
+and optionally whether another account has a trustline for that exact asset.
+
+```js
+const { verifyAssetIssuer } = require('./src');
+
+const result = await verifyAssetIssuer(
+  'USDC',
+  'G...',
+  {
+    network: 'public',
+    trustlineAddress: 'G...' // optional
+  }
+);
+
+console.log(result.asset.exists);
+console.log(result.issuer.exists);
+console.log(result.trustline.exists);
+```
+
+The returned object includes:
+
+- `asset.exists` plus Horizon asset metadata such as account count and supply.
+- `issuer.exists`, balances, signers, and issuer flags from the issuer account.
+- `trustline.checked` and, when `trustlineAddress` is provided, trustline
+  existence, balance, and limit for the exact `assetCode`/`assetIssuer` pair.
+- `network`, matching either `testnet` or `public`.
+
+Asset codes must be 1-12 uppercase letters or numbers. Issuer and optional
+trustline accounts must be valid Stellar public keys before Horizon is queried.
+
 For contract verification, install the Rust toolchain and Soroban CLI locally:
 
 ```bash
