@@ -1,9 +1,13 @@
 const StellarSdk = require('stellar-sdk');
 
 /**
- * Validate a Stellar address
- * @param {string} address - The Stellar address to validate
- * @returns {boolean} True if valid, false otherwise
+ * Validate a Stellar public account address.
+ *
+ * @example
+ * const isValid = validateAddress("GABC...");
+ *
+ * @param {string} address - Stellar Ed25519 public key beginning with `G`.
+ * @returns {boolean} True when the address is a valid Stellar public key.
  */
 function validateAddress(address) {
   try {
@@ -14,9 +18,13 @@ function validateAddress(address) {
 }
 
 /**
- * Validate a Stellar secret key
- * @param {string} secretKey - The Stellar secret key to validate
- * @returns {boolean} True if valid, false otherwise
+ * Validate a Stellar secret seed.
+ *
+ * @example
+ * const isValid = validateSecretKey("SABC...");
+ *
+ * @param {string} secretKey - Stellar Ed25519 secret seed beginning with `S`.
+ * @returns {boolean} True when the secret key is a valid Stellar secret seed.
  */
 function validateSecretKey(secretKey) {
   try {
@@ -27,8 +35,12 @@ function validateSecretKey(secretKey) {
 }
 
 /**
- * Generate a new Stellar keypair
- * @returns {Object} Keypair object with publicKey and secretKey
+ * Generate a new random Stellar keypair.
+ *
+ * @example
+ * const { publicKey, secretKey } = generateKeypair();
+ *
+ * @returns {{publicKey: string, secretKey: string}} Public account id and secret seed.
  */
 function generateKeypair() {
   const pair = StellarSdk.Keypair.random();
@@ -39,10 +51,14 @@ function generateKeypair() {
 }
 
 /**
- * Get the balance of a Stellar address
- * @param {string} address - The Stellar address
- * @param {string} [network='testnet'] - The network to use ('testnet' or 'public')
- * @returns {Promise<Array>} Array of balances
+ * Load balances for a Stellar account from Horizon.
+ *
+ * @example
+ * const balances = await getBalance("GABC...", "testnet");
+ *
+ * @param {string} address - Stellar account public key to load from Horizon.
+ * @param {'testnet'|'public'} [network='testnet'] - Horizon network selector.
+ * @returns {Promise<Array<Object>>} Horizon balance rows for the account.
  */
 async function getBalance(address, network = 'testnet') {
   const server = network === 'public' 
@@ -54,14 +70,25 @@ async function getBalance(address, network = 'testnet') {
 }
 
 /**
- * Create and sign a payment transaction
- * @param {string} sourceSecret - Source account secret key
- * @param {string} destinationAddress - Destination address
- * @param {string} amount - Amount to send
- * @param {string} [assetCode='XLM'] - Asset code (default XLM)
- * @param {string} [assetIssuer=null] - Asset issuer (required for non-XLM assets
- * @param {string} [network='testnet'] - Network to use
- * @returns {Promise<string>} Signed transaction XDR
+ * Create, sign, and serialize a Stellar payment transaction.
+ *
+ * @example
+ * const xdr = await createPaymentTransaction(
+ *   sourceSecret,
+ *   destinationAddress,
+ *   "10",
+ *   "XLM",
+ *   null,
+ *   "testnet"
+ * );
+ *
+ * @param {string} sourceSecret - Secret seed for the source account.
+ * @param {string} destinationAddress - Stellar public key receiving the payment.
+ * @param {string} amount - Decimal amount string accepted by Horizon, e.g. `"10.5"`.
+ * @param {string} [assetCode='XLM'] - Asset code to send; use `XLM` for native lumens.
+ * @param {?string} [assetIssuer=null] - Issuer public key for non-native assets.
+ * @param {'testnet'|'public'} [network='testnet'] - Horizon and passphrase network selector.
+ * @returns {Promise<string>} Signed transaction encoded as base64 XDR.
  */
 async function createPaymentTransaction(sourceSecret, destinationAddress, amount, assetCode = 'XLM', assetIssuer = null, network = 'testnet') {
   const server = network === 'public' 
@@ -95,10 +122,14 @@ async function createPaymentTransaction(sourceSecret, destinationAddress, amount
 }
 
 /**
- * Submit a transaction to the network
- * @param {string} transactionXDR - Signed transaction XDR
- * @param {string} [network='testnet'] - Network to use
- * @returns {Promise<Object>} Transaction result
+ * Submit a signed transaction XDR to Horizon.
+ *
+ * @example
+ * const result = await submitTransaction(transactionXDR, "testnet");
+ *
+ * @param {string} transactionXDR - Signed transaction encoded as base64 XDR.
+ * @param {'testnet'|'public'} [network='testnet'] - Horizon and passphrase network selector.
+ * @returns {Promise<Object>} Horizon transaction submission result.
  */
 async function submitTransaction(transactionXDR, network = 'testnet') {
   const server = network === 'public' 
