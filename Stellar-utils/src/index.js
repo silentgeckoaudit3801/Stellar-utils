@@ -54,6 +54,62 @@ async function getBalance(address, network = 'testnet') {
 }
 
 /**
+ * Build a Stellar memo from a normalized memo option.
+ * @param {Object|null|string} memo - Memo option or text memo string
+ * @param {string} memo.type - Memo type: none, text, id, hash, or return
+ * @param {string} memo.value - Memo value
+ * @returns {Object|null} StellarSdk.Memo instance or null for no memo
+ */
+function buildMemo(memo = null) {
+  if (memo === null || memo === undefined || memo === '') {
+    return null;
+  }
+
+  if (typeof memo === 'string') {
+    memo = { type: 'text', value: memo };
+  }
+
+  if (typeof memo !== 'object') {
+    throw new TypeError('Memo must be a string or an object with type and value.');
+  }
+
+  const type = String(memo.type || 'none').toLowerCase();
+  const value = memo.value;
+
+  if (type === 'none') {
+    return null;
+  }
+
+  if (type === 'text') {
+    if (typeof value !== 'string' || Buffer.byteLength(value, 'utf8') > 28) {
+      throw new RangeError('Text memo must be a UTF-8 string up to 28 bytes.');
+    }
+    return StellarSdk.Memo.text(value);
+  }
+
+  if (type === 'id') {
+    const normalized = String(value);
+    if (!/^\d+$/.test(normalized) || BigInt(normalized) > BigInt('18446744073709551615')) {
+      throw new RangeError('ID memo must be an unsigned 64-bit integer string.');
+    }
+    return StellarSdk.Memo.id(normalized);
+  }
+
+  if (type === 'hash' || type === 'return') {
+    if (typeof value !== 'string' || !/^[0-9a-fA-F]{64}$/.test(value)) {
+      throw new RangeError(`${type} memo must be a 32-byte hex string.`);
+    }
+
+    const bytes = Buffer.from(value, 'hex');
+    return type === 'hash'
+      ? StellarSdk.Memo.hash(bytes)
+      : StellarSdk.Memo.returnHash(bytes);
+  }
+
+  throw new TypeError('Memo type must be one of: none, text, id, hash, return.');
+}
+
+/**
  * Create and sign a payment transaction
  * @param {string} sourceSecret - Source account secret key
  * @param {string} destinationAddress - Destination address
@@ -61,9 +117,10 @@ async function getBalance(address, network = 'testnet') {
  * @param {string} [assetCode='XLM'] - Asset code (default XLM)
  * @param {string} [assetIssuer=null] - Asset issuer (required for non-XLM assets
  * @param {string} [network='testnet'] - Network to use
+ * @param {Object|null|string} [memo=null] - Optional memo string or { type, value }
  * @returns {Promise<string>} Signed transaction XDR
  */
-async function createPaymentTransaction(sourceSecret, destinationAddress, amount, assetCode = 'XLM', assetIssuer = null, network = 'testnet') {
+async function createPaymentTransaction(sourceSecret, destinationAddress, amount, assetCode = 'XLM', assetIssuer = null, network = 'testnet', memo = null) {
   const server = network === 'public' 
     ? new StellarSdk.Server('https://horizon.stellar.org')
     : new StellarSdk.Server('https://horizon-testnet.stellar.org');
@@ -78,7 +135,7 @@ async function createPaymentTransaction(sourceSecret, destinationAddress, amount
     asset = new StellarSdk.Asset(assetCode, assetIssuer);
   }
   
-  const transaction = new StellarSdk.TransactionBuilder(sourceAccount, {
+  const builder = new StellarSdk.TransactionBuilder(sourceAccount, {
     fee: StellarSdk.BASE_FEE,
     networkPassphrase: network === 'public' ? StellarSdk.Networks.PUBLIC : StellarSdk.Networks.TESTNET
   })
@@ -86,9 +143,14 @@ async function createPaymentTransaction(sourceSecret, destinationAddress, amount
       destination: destinationAddress,
       asset: asset,
       amount: amount
-    }))
-    .setTimeout(30)
-    .build();
+    }));
+
+  const stellarMemo = buildMemo(memo);
+  if (stellarMemo) {
+    builder.addMemo(stellarMemo);
+  }
+
+  const transaction = builder.setTimeout(30).build();
   
   transaction.sign(sourceKeypair);
   return transaction.toXDR();
@@ -114,6 +176,7 @@ module.exports = {
   validateSecretKey,
   generateKeypair,
   getBalance,
+  buildMemo,
   createPaymentTransaction,
   submitTransaction
 };
