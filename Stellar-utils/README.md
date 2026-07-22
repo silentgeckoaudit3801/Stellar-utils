@@ -1,5 +1,7 @@
 # Stellar Utils
 
+![Coverage threshold](https://img.shields.io/badge/coverage-80%25%20minimum-brightgreen)
+
 Useful utilities and developer helpers for Stellar blockchain development.
 
 ## Quick start
@@ -67,6 +69,16 @@ console.log(xdr);
 - See [examples/README.md](examples/README.md) for runnable scripts.
 - See [docs/API.md](docs/API.md) for the full API guide and best practices.
 
+## Coverage reporting
+
+Run the coverage gate locally with:
+
+```bash
+npm run test:coverage
+```
+
+The Jest configuration enforces an 80% global minimum for branches, functions, lines, and statements, and writes reports to `coverage/` (`text`, `lcov`, and `json-summary`). Keep new utility helpers covered with focused unit tests before opening a pull request.
+
 ## Continuous Integration
 
 This repository includes GitHub Actions workflows that run on every push and
@@ -82,6 +94,7 @@ To run the CI checks locally, use:
 
 ```bash
 npm test
+npm run test:coverage
 node --check backend/index.js
 node --check frontend/app.js
 ```
