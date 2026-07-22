@@ -1,4 +1,4 @@
-const { validateAddress, validateSecretKey, generateKeypair } = require('../src/index');
+const { validateAddress, validateSecretKey, generateKeypair, createAccount } = require('../src/index');
 
 describe('Stellar Utils', () => {
   describe('validateAddress', () => {
@@ -39,6 +39,39 @@ describe('Stellar Utils', () => {
       expect(pair.secretKey).toBeDefined();
       expect(validateAddress(pair.publicKey)).toBe(true);
       expect(validateSecretKey(pair.secretKey)).toBe(true);
+    });
+  });
+  describe('createAccount', () => {
+    test('should create and fund a testnet account through friendbot', async () => {
+      const fetchFn = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ successful: true, hash: 'abc123' })
+      });
+
+      const account = await createAccount('testnet', { fetchFn });
+
+      expect(validateAddress(account.publicKey)).toBe(true);
+      expect(validateSecretKey(account.secretKey)).toBe(true);
+      expect(account.network).toBe('testnet');
+      expect(account.funded).toBe(true);
+      expect(account.friendbotResponse).toEqual({ successful: true, hash: 'abc123' });
+      expect(fetchFn).toHaveBeenCalledTimes(1);
+      expect(fetchFn.mock.calls[0][0]).toMatch(/^https://friendbot.stellar.org?addr=G/);
+    });
+
+    test('should reject public network account creation without a funded source account', async () => {
+      await expect(createAccount('public')).rejects.toThrow('only supports testnet');
+    });
+
+    test('should surface clear friendbot errors', async () => {
+      const fetchFn = jest.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+        json: async () => ({ detail: 'rate limit exceeded' })
+      });
+
+      await expect(createAccount('testnet', { fetchFn })).rejects.toThrow('rate limit exceeded');
     });
   });
 });
