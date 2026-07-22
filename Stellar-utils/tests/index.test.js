@@ -57,7 +57,7 @@ describe('Stellar Utils', () => {
       expect(account.funded).toBe(true);
       expect(account.friendbotResponse).toEqual({ successful: true, hash: 'abc123' });
       expect(fetchFn).toHaveBeenCalledTimes(1);
-      expect(fetchFn.mock.calls[0][0]).toMatch(/^https://friendbot.stellar.org?addr=G/);
+      expect(fetchFn.mock.calls[0][0]).toMatch(/^https:\/\/friendbot\.stellar\.org\?addr=G/);
     });
 
     test('should reject public network account creation without a funded source account', async () => {
