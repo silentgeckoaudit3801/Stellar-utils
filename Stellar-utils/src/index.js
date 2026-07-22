@@ -116,6 +116,62 @@ async function createPaymentTransaction(sourceSecret, destinationAddress, amount
 }
 
 /**
+ * Create and fund a new Stellar testnet account with friendbot.
+ *
+ * @param {string} [network='testnet'] - Only 'testnet' is supported because public network account creation requires a funded source account.
+ * @param {{ fetchFn?: Function, friendbotUrl?: string }} [options] - Optional test hooks for the friendbot request.
+ * @returns {Promise<{ publicKey: string, secretKey: string, network: string, funded: boolean, friendbotResponse: Object }>} Newly generated keypair and friendbot response.
+ * @example
+ * const { createAccount } = require('stellar-utils');
+ * const account = await createAccount();
+ * console.log(account.publicKey);
+ */
+async function createAccount(network = 'testnet', options = {}) {
+  if (network !== 'testnet') {
+    throw new Error('createAccount only supports testnet friendbot funding; use createPaymentTransaction with a funded source account on public network.');
+  }
+
+  const fetchFn = options.fetchFn || globalThis.fetch;
+  if (typeof fetchFn !== 'function') {
+    throw new Error('createAccount requires fetch to call Stellar testnet friendbot.');
+  }
+
+  const pair = StellarSdk.Keypair.random();
+  const publicKey = pair.publicKey();
+  const friendbotUrl = options.friendbotUrl || 'https://friendbot.stellar.org';
+  const url = `${friendbotUrl}?addr=${encodeURIComponent(publicKey)}`;
+
+  let response;
+  try {
+    response = await fetchFn(url);
+  } catch (error) {
+    throw new Error(`Friendbot request failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
+
+  let friendbotResponse = {};
+  if (typeof response.json === 'function') {
+    try {
+      friendbotResponse = await response.json();
+    } catch (error) {
+      friendbotResponse = {};
+    }
+  }
+
+  if (!response.ok) {
+    const message = friendbotResponse.detail || friendbotResponse.title || friendbotResponse.message || `HTTP ${response.status}`;
+    throw new Error(`Friendbot funding failed: ${message}`);
+  }
+
+  return {
+    publicKey,
+    secretKey: pair.secret(),
+    network,
+    funded: true,
+    friendbotResponse
+  };
+}
+
+/**
  * Submit a signed transaction to Horizon.
  *
  * @param {string} transactionXDR - The signed transaction XDR to submit.
@@ -138,6 +194,7 @@ module.exports = {
   validateAddress,
   validateSecretKey,
   generateKeypair,
+  createAccount,
   getBalance,
   createPaymentTransaction,
   submitTransaction
