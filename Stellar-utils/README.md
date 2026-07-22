@@ -36,6 +36,14 @@ console.log(pair.publicKey);
 console.log(pair.secretKey);
 ```
 
+Create and fund a testnet account:
+
+```js
+const { createAccount } = require('stellar-utils');
+const account = await createAccount();
+console.log(account.publicKey);
+console.log(account.secretKey);
+```
 Check an account balance:
 
 ```js
